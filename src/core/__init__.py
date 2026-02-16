@@ -1,0 +1,1 @@
+'''Core of the app source including configurations'''
