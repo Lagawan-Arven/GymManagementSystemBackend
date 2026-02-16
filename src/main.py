@@ -1,11 +1,10 @@
 from fastapi import FastAPI,Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from router.auth_router import router as auth_router
+from src.router.auth_router import router as auth_router
 
 from src.core.config import setup_logging,limiter
 from src.core.lifespan import lifespan
-from src.core.exceptions import add_exception_handlers
 import logging
 
 setup_logging()
@@ -13,9 +12,8 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Gym Management API",lifespan=lifespan)
 app.state.limiter = limiter
-add_exception_handlers(app)
 
-origins = ["http://localhost:5173"]
+origins = ["http://localhost:5173","http://127.0.0.1:5173"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -31,4 +29,4 @@ def health_check(request: Request):
     logger.info('Application status ok')
     return {"status":"ok"}
 
-app.include_router(auth_router,tags=["Authentication"])
+app.include_router(auth_router,prefix='/auth',tags=["Authentication"])
