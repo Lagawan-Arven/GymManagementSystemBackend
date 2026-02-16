@@ -1,39 +1,100 @@
-from fastapi import APIRouter,Request
+from __future__ import annotations
+from fastapi import APIRouter,Request,Depends
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
 from src.core.config import limiter
-from src.schemas import auth_schemas
-from src.core import exceptions
+from src.core.exceptions import *
+from src.authenticaton.auth import *
+from src.util.dependency import get_db_session
+from src.database.models import *
+from src.util.service import *
 import logging
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-sample_users = [{"name":"arven","age":22,"sex":"male","email":"sample@email.com","password":"1234"}]
+class SignupPayload(BaseModel):
+    name: str
+    age: int
+    sex: str
+    email: str
+    password: str
+
+class SigninPayload(BaseModel):
+    emailUsername: str | None = None
+    password: str
+
+class SigninResponse(BaseModel):
+    message: str
+    status: str = "ok"
+    access_token: str | None = None
+    token_type: str | None = None
+    user: UserOut
+
+class User(BaseModel):
+    id: int
+    name: str
+    age: int
+    sex: str
+    username: str
+    email: str
+
+class UserOut(User):
+    class Config():
+        from_attributes = True
 
 #=================================
             #SIGNUP USER
 #=================================
 @router.post("/signup")
 @limiter.limit('10/minute')
-def signup_user(request: Request, data: auth_schemas.SignupPayload):
-    
-    sample_users.append(data)
-    return {"message":"Signup success"}
+def signup_user(request: Request, data: SignupPayload, 
+                db_session: Session = Depends(get_db_session)):
+
+    #Checks if the user already existed
+    db_user = db_session.query(USER).filter(USER.email==data.email).first()
+    if db_user:
+        logger.info('User signup failed')
+        raise AlreadyExistsError(f'User: {db_user.name}')
+    try:
+        new_user = USER(
+            name = data.name.capitalize(),
+            age = data.age,
+            sex = data.sex,
+            username = data.name.capitalize().strip(),
+            email = data.email,
+            password = hash_password(data.password)
+        )
+        db_session.add(new_user)
+        db_session.commit()
+        db_session.refresh(new_user)
+    except DatabaseError:
+        DatabaseError()
+
+    logger.info('User signup success')
+    return {"message":"Signup success","status":"ok"}
 
 #=================================
             #SIGNIN USER
 #=================================
-@router.post("/signin")
+@router.post("/signin",response_model=SigninResponse)
 @limiter.limit('10/minute')
-def signin_user(request: Request, payload: auth_schemas.SigninPayload):
+def signin_user(request: Request, data: SigninPayload,
+                db_session:Session = Depends(get_db_session)):
 
-    for user in sample_users:
-        if payload.email == user["email"]: 
-            if payload.password == user['password']:
-                logger.info('Sign in successful')
-                return user
-            else:
-                raise exceptions.PasswordIncorrectError()
+    user = get_user_by_email_or_username(db_session, email = data.emailUsername,username=data.emailUsername)
+   
+    if not verify_password(data.password,user.password):
+        raise PasswordIncorrectError()
     
-    raise exceptions.NotFoundError("User")
+    access_token = create_access_token({"id":user.id,"role":user.role})
+
+    logger.info('User signin success')
+    return SigninResponse(
+        message = "signin success",
+        access_token=access_token,
+        token_type="bearer",
+        user = user
+    ).model_dump()
