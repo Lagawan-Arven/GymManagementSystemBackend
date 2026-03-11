@@ -2,6 +2,7 @@ from fastapi import FastAPI,Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.router.auth_router import router as auth_router
+from src.router.owner_router import router as owner_router
 
 from src.core.config import setup_logging,limiter
 from src.core.lifespan import lifespan
@@ -30,3 +31,4 @@ def health_check(request: Request):
     return {"status":"ok"}
 
 app.include_router(auth_router,prefix='/auth',tags=["Authentication"])
+app.include_router(owner_router,tags=["Owner Router"])
