@@ -5,7 +5,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from enum import StrEnum
 from datetime import datetime,timezone,timedelta
 import uuid,shortuuid
-from typing import List
+from typing import List,Any
 
 Base = declarative_base()
 
@@ -35,10 +35,19 @@ class PaymentStatus(StrEnum):
     pending = 'pending'
     paid = 'paid'
 
+class MODELBASE(Base):
+    __abstract__ = True
+    
+    added_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).isoformat())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).isoformat(),
+                         onupdate=lambda: datetime.now(timezone.utc).isoformat())
+                         
+    isDeleted:Mapped[bool] = mapped_column(default=False, server_default='false')
+
 #=================================
             #OWNER
 #=================================
-class OWNER(Base):
+class OWNER(MODELBASE):
     __tablename__ =  'Owners'
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, index=True)
@@ -46,9 +55,6 @@ class OWNER(Base):
     username: Mapped[str]
     email: Mapped[str]
     password: Mapped[str]
-    added_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).isoformat())
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).isoformat(),
-                         onupdate=lambda: datetime.now(timezone.utc).isoformat())
     
     admins: Mapped[List["ADMIN"]] = relationship(back_populates='owner')
     members: Mapped[List["MEMBER"]] = relationship(back_populates='owner')
@@ -59,7 +65,7 @@ class OWNER(Base):
 #=================================
             #ADMIN
 #=================================
-class ADMIN(Base):
+class ADMIN(MODELBASE):
     __tablename__ = 'Admins'
 
     owner_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True),ForeignKey("Owners.id"),nullable=False)
@@ -68,9 +74,6 @@ class ADMIN(Base):
     username: Mapped[str]
     email: Mapped[str]
     password: Mapped[str]
-    added_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).isoformat())
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).isoformat(),
-                         onupdate=lambda: datetime.now(timezone.utc).isoformat())
     
     owner: Mapped["OWNER"] = relationship(back_populates='admins')
     members: Mapped[List["MEMBER"]] = relationship(back_populates='admin')
@@ -81,7 +84,7 @@ class ADMIN(Base):
 #=================================
             #MEMBER
 #=================================
-class MEMBER(Base):
+class MEMBER(MODELBASE):
     __tablename__ = 'Members'
 
     owner_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True),ForeignKey("Owners.id"),nullable=False)
@@ -92,9 +95,8 @@ class MEMBER(Base):
     sex: Mapped[str]
     email: Mapped[str]
     contact_number: Mapped[str]
-    added_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).isoformat())
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).isoformat(),
-                         onupdate=lambda: datetime.now(timezone.utc).isoformat())
+                
+    updated_by: Mapped[str] = mapped_column(nullable=True,default=None)            
     renewed_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).isoformat())
     expires_at: Mapped[datetime] = mapped_column(DateTime,default=lambda: datetime.now(timezone.utc).isoformat()
                                                              + timedelta(days=30))
@@ -117,7 +119,7 @@ class MEMBER(Base):
 #=================================
             #SESSION
 #=================================
-class SESSION(Base):
+class SESSION(MODELBASE):
     __tablename__ = 'Sessions'
 
     owner_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True),ForeignKey("Owners.id"),nullable=False)
@@ -125,7 +127,6 @@ class SESSION(Base):
     member_id: Mapped[str] = mapped_column(String,ForeignKey('Members.id'),nullable=True)
     id: Mapped[int] = mapped_column(primary_key=True,unique=True,index=True,autoincrement=True)
     type:Mapped[SessionType] = mapped_column(Enum(SessionType))
-    recorded_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).isoformat())
 
     owner: Mapped["OWNER"] = relationship(back_populates='sessions')
     admin: Mapped["ADMIN"] = relationship(back_populates='sessions')
@@ -146,18 +147,16 @@ class PAYMENT(Base):
     notes: Mapped[str] = mapped_column(nullable=True)
     transaction_ref: Mapped[str] = mapped_column(nullable=True)
     status: Mapped[PaymentStatus] = mapped_column(Enum(PaymentStatus),default=PaymentStatus.paid.value)
-    paid_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).isoformat())
 
     owner: Mapped["OWNER"] = relationship(back_populates='payments')
     admin: Mapped["ADMIN"] = relationship(back_populates='payments')
     member: Mapped["MEMBER"] = relationship(back_populates='payments')
     log: Mapped["LOG"] = relationship(back_populates="payment")
 
-
 #=================================
             #LOGS
 #=================================
-class LOG(Base):
+class LOG(MODELBASE):
     __tablename__ = 'Logs'
 
     owner_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True),ForeignKey("Owners.id"),nullable=False)
@@ -168,8 +167,7 @@ class LOG(Base):
     id: Mapped[int] = mapped_column(primary_key=True,unique=True,index=True,autoincrement=True)
     action: Mapped[Action] = mapped_column(Enum(Action))
     details: Mapped[str]
-    added_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).isoformat())
-
+    
     owner: Mapped["OWNER"] = relationship(back_populates='logs')
     admin: Mapped["ADMIN"] = relationship(back_populates='logs')
     member: Mapped["MEMBER"] = relationship(back_populates='logs')
