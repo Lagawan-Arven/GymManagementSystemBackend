@@ -1,8 +1,8 @@
+
 from jose import jwt
 from jose.exceptions import JWTError
 from argon2 import PasswordHasher
 from argon2.exceptions import *
-from src.core.exceptions import *
 from datetime import datetime,timedelta
 import os
 
@@ -20,18 +20,18 @@ def create_access_token(data: dict):
         to_encode.update({"exp":expire})
         return jwt.encode(claims=to_encode,key=SECRET_KEY,algorithm=ALGORITHM)
     except JWTError:
-        raise InvalidError('token crendential')
+        raise RuntimeError('token crendential')
 
 def verify_password(input_pwd: str, hashed_pwd: str):
     try:
         return pwd_hasher.verify(hashed_pwd,input_pwd)
     except VerifyMismatchError:
-        raise PasswordIncorrectError()
+        raise RuntimeError()
     except VerificationError:
-        raise InvalidError('password hash')
+        raise RuntimeError('password hash')
 
 def hash_password(input_pwd: str):
     try:
         return pwd_hasher.hash(input_pwd)
     except HashingError:
-        raise InvalidError()
+        raise RuntimeError()
