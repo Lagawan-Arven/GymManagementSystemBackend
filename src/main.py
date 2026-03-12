@@ -1,8 +1,7 @@
 from fastapi import FastAPI,Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.router.auth_router import router as auth_router
-from src.router.owner_router import router as owner_router
+from src.router import SystemRouter,AuthRouter,AdminRouter,MemberRouter,SessionRouter,PaymentRouter,LogsRouter
 
 from src.core.config import setup_logging,limiter
 from src.core.lifespan import lifespan
@@ -30,5 +29,11 @@ def health_check(request: Request):
     logger.info('Application status ok')
     return {"status":"ok"}
 
-app.include_router(auth_router,prefix='/auth',tags=["Authentication"])
-app.include_router(owner_router,tags=["Owner Router"])
+app.include_router(SystemRouter,tags=['System'])
+app.include_router(AuthRouter,prefix='/auth',tags=["Authentication"])
+app.include_router(AdminRouter,tags=["Admin Router"])
+app.include_router(MemberRouter,tags=["Member Router"])
+app.include_router(SessionRouter,tags=["Session Router"])
+app.include_router(PaymentRouter,tags=["Payment Router"])
+app.include_router(LogsRouter,tags=["Logs Router"])
+                   
